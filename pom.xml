@@ -16,6 +16,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
+        <commons-lang3.version>3.11</commons-lang3.version>
         <junit.version>4.13</junit.version>
         <karaf.version>4.2.9</karaf.version>
         <log4j2.version>2.13.3</log4j2.version>
@@ -25,6 +26,7 @@
 
         <maven-clean-plugin.version>3.1.0</maven-clean-plugin.version>
         <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
+        <maven-dependency-plugin.version>3.1.2</maven-dependency-plugin.version>
         <maven-resources-plugin.version>3.2.0</maven-resources-plugin.version>
         <maven-surefire-plugin.version>2.18.1</maven-surefire-plugin.version>
         <depends-maven-plugin.version>1.4.0</depends-maven-plugin.version>
@@ -41,12 +43,18 @@
             <artifactId>apache-karaf</artifactId>
             <version>${karaf.version}</version>
             <type>zip</type>
+            <scope>runtime</scope>
             <exclusions>
                 <exclusion>
                     <groupId>*</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -57,11 +65,13 @@
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
             <version>${log4j2.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
             <version>${log4j2.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.ops4j.pax.exam</groupId>
@@ -79,15 +89,21 @@
             <version>${pax-exam.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.ops4j.pax.exam</groupId>
+            <artifactId>pax-exam-spi</artifactId>
+            <version>${pax-exam.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.ops4j.pax.url</groupId>
             <artifactId>pax-url-aether</artifactId>
             <version>${pax-url.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.core</artifactId>
             <version>${osgi.version}</version>
-            <scope>provided</scope>
+            <scope>provided</scope> <!-- Scope provided, but if dependency is removed, we only get a runtime error, strange! -->
         </dependency>
     </dependencies>
 
@@ -103,6 +119,28 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven-dependency-plugin.version}</version>
+                    <configuration>
+                        <ignoredUnusedDeclaredDependencies>
+                            <!-- The Karaf distribution zip, needs to be available at runtime -->
+                            <dependency>org.apache.karaf:apache-karaf:zip</dependency>
+                            <!-- The Log4J2 API implementation, used by the test class itself (and not the container), needs to be on the classpath at runtime -->
+                            <dependency>org.apache.logging.log4j:log4j-core</dependency>
+                            <!-- Log4J2 SLF4J binding, needs to be on the classpath at runtime, since Pax Exam itself is using SLF4J. Without it, we will see
+                             a warning about getting the no-operation (NOP) SLF4J logger instead, and consequently see no Pax Exam logs -->
+                            <dependency>org.apache.logging.log4j:log4j-slf4j-impl</dependency>
+                            <!-- Needs to be on the classpath at runtime, or we will fail to bring up the container due to:
+                             java.net.MalformedURLException: unknown protocol: mvn -->
+                            <dependency>org.ops4j.pax.url:pax-url-aether</dependency>
+                            <!-- Needs to be on the classpath, or we will get a runtime error (even though it is "provided" scope!),
+                             namely: java.lang.ClassNotFoundException: org.osgi.framework.BundleException -->
+                            <dependency>org.osgi:org.osgi.core</dependency>
+                        </ignoredUnusedDeclaredDependencies>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
